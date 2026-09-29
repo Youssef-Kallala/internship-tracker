@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ app['name'] }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background-color: #f5f5f5;
+        }
+        h1 { color: #333; }
+        a { color: #2c7be5; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        th {
+            background-color: #2c7be5;
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+        }
+        td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            vertical-align: top;
+        }
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .btn-red { background-color: #e74c3c; color: white; }
+        .btn-blue { background-color: #2c7be5; color: white; }
+        .btn-green { background-color: #2ecc71; color: white; }
+        input[type="text"], input[type="date"], input[type="number"], select {
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+        .add-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .add-form input, .add-form select {
+            margin: 5px;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <a href="/">← Back to all applications</a>
+
+    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; margin-top: 20px;">
+        <h1 style="margin: 0;">{{ app['name'] }}</h1>
+        <form method="POST" action="/rename_application/{{ app['id'] }}">
+            <input type="text" name="new_name" placeholder="New name..." style="padding: 6px; border: 1px solid #ccc; border-radius: 5px;">
+            <button class="btn btn-blue" type="submit">Rename</button>
+        </form>
+    </div>
+
+    <!-- Applications Table -->
+    <div class="table-container">
+        <table>
+            <tr>
+                <th style="width: 200px;">Field</th>
+                <th>Value</th>
+                <th style="width: 100px;">Action</th>
+            </tr>
+            {% for field in fields %}
+            <tr>
+                <td><strong>{{ field['field_name'] }}</strong></td>
+                <td>
+                    <form method="POST" action="/update_value/{{ field['entry_id'] }}/{{ app['id'] }}"
+                          id="form-{{ field['id'] }}">
+
+                        {% if field['field_name'] == 'Application Link' %}
+                            <input type="text" name="value" value="{{ field['value'] }}">
+                            {% if field['value'] %}
+                                <a href="{{ field['value'] }}" target="_blank"
+                                   style="font-size: 13px; margin-left: 8px;">🔗 Open</a>
+                            {% endif %}
+
+                        {% elif field['field_name'] == 'Date Applied' %}
+                            <input type="date" name="value" value="{{ field['value'] }}"
+                                   id="date-applied-input">
+
+                        {% elif field['field_type'] == 'text' %}
+                            <input type="text" name="value" value="{{ field['value'] }}">
+
+                        {% elif field['field_type'] == 'date' %}
+                            <input type="date" name="value" value="{{ field['value'] }}">
+
+                        {% elif field['field_type'] == 'number' %}
+                            <input type="number" name="value" value="{{ field['value'] }}">
+
+                        {% elif field['field_type'] == 'choice' %}
+                            <select name="value" id="status-select"
+                                    onchange="handleStatusChange(this)">
+                                {% for option in ['Did not apply yet', 'Applied', 'Interviewed', 'Rejected', 'Accepted'] %}
+                                    <option value="{{ option }}"
+                                            {% if field['value'] == option %}selected{% endif %}>
+                                        {{ option }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+
+                        {% elif field['field_type'] == 'yesno' %}
+                            <select name="value">
+                                {% for option in ['Yes', 'No'] %}
+                                    <option value="{{ option }}"
+                                            {% if field['value'] == option %}selected{% endif %}>
+                                        {{ option }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        {% endif %}
+
+                        <button class="btn btn-green" type="submit">✓</button>
+                    </form>
+                </td>
+                <td>
+                    {% if field['field_name'] != 'Status' %}
+                    <form method="POST" action="/delete_field/{{ field['id'] }}/{{ app['id'] }}">
+                        <button class="btn btn-red" onclick="return confirm('Delete this field?')">
+                            Delete
+                        </button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+
+    <!-- Add Field Form -->
+    <div class="add-form">
+        <h3>Add a new field</h3>
+        <form method="POST" action="/add_field/{{ app['id'] }}">
+            <input type="text" name="field_name" placeholder="Field name e.g. Salary" required>
+            <select name="field_type">
+                <option value="text">Text</option>
+                <option value="date">Date</option>
+                <option value="number">Number</option>
+                <option value="yesno">Yes / No</option>
+            </select>
+            <button class="btn btn-blue" type="submit">Add field</button>
+        </form>
+    </div>
+
+    <script>
+        function handleStatusChange(selectEl) {
+            if (selectEl.value === "Applied") {
+                const dateInput = document.getElementById("date-applied-input");
+                if (dateInput && !dateInput.value) {
+                    const today = new Date().toISOString().split('T')[0];
+                    dateInput.value = today;
+                    // Auto-save the date
+                    dateInput.closest('form').submit();
+                }
+            }
+        }
+    </script>
+
+</body>
+</html>
